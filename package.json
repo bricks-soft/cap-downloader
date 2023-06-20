@@ -1,5 +1,5 @@
 {
-  "name": "cap-download",
+  "name": "@bricks-soft/cap-download",
   "version": "0.0.1",
   "description": "Download files using Android Download Manager",
   "main": "dist/plugin.cjs.js",
@@ -9,9 +9,7 @@
   "files": [
     "android/src/main/",
     "android/build.gradle",
-    "dist/",
-    "ios/Plugin/",
-    "CapDownload.podspec"
+    "dist/"
   ],
   "author": "YasserRabee",
   "license": "MIT",

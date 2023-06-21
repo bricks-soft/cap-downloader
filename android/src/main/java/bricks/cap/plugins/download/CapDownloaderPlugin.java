@@ -7,14 +7,14 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
-@CapacitorPlugin(name = "CapDownload")
-public class CapDownloadPlugin extends Plugin {
+@CapacitorPlugin(name = "CapDownloader")
+public class CapDownloaderPlugin extends Plugin {
 
-    private CapDownload implementation = new CapDownload(this.getContext());
+    private final CapDownloader implementation = new CapDownloader();
 
     @PluginMethod
-    public void echo(PluginCall call) {
-        final JSObject optionsJ = call.getObject("options", new JSObject());
+    public void download(PluginCall call) {
+        final JSObject optionsJ = call.getData();
         final String title = optionsJ.getString("title");
         final String url = optionsJ.getString("url");
         final String filename = optionsJ.getString("filename");
@@ -22,12 +22,13 @@ public class CapDownloadPlugin extends Plugin {
 
         final DownloadOptions options = new DownloadOptions(title, Uri.parse(url), filename, mimeType);
 
-        JSObject ret = new JSObject();
         try {
-            ret.put("id", implementation.download(options));
+            JSObject ret = new JSObject();
+            final long id = implementation.download(getContext(), options);
+            ret.put("id", id);
+            call.resolve(ret);
         } catch (NotImplementedError e) {
             call.reject(e.getMessage(), e);
         }
-        call.resolve(ret);
     }
 }

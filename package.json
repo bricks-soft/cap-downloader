@@ -51,6 +51,7 @@
     "@ionic/eslint-config": "^0.3.0",
     "@ionic/prettier-config": "^1.0.1",
     "@ionic/swiftlint-config": "^1.1.2",
+    "@types/file-saver": "^2.0.5",
     "eslint": "^7.11.0",
     "prettier": "~2.3.0",
     "prettier-plugin-java": "~1.0.2",
@@ -75,5 +76,8 @@
   "publishConfig": {
     "access": "public"
   },
-  "homepage": "https://github.com/bricks-soft/cap-downloader"
+  "homepage": "https://github.com/bricks-soft/cap-downloader",
+  "dependencies": {
+    "file-saver": "^2.0.5"
+  }
 }

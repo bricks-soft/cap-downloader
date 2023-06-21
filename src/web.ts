@@ -1,9 +1,13 @@
-import {WebPlugin} from '@capacitor/core';
+import { WebPlugin } from '@capacitor/core';
+import { saveAs } from 'file-saver';
 
-import type {CapDownloadPlugin, Options} from './definitions';
+import type { CapDownloaderPlugin, Options } from './definitions';
 
-export class CapDownloadWeb extends WebPlugin implements CapDownloadPlugin {
-    async download(_options: Options): Promise<{ id: number }> {
-        throw new Error("Not implemented");
-    }
+export class CapDownloaderWeb extends WebPlugin implements CapDownloaderPlugin {
+  async download(options: Options): Promise<{ id?: number }> {
+    return fetch(options.url)
+      .then(response => response.blob())
+      .then(blob => saveAs(blob, options.filename))
+      .then(() => ({}));
+  }
 }

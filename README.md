@@ -1,11 +1,11 @@
-# cap-download
+# cap-downloader
 
 Download files using Android Download Manager
 
 ## Install
 
 ```bash
-npm install cap-download
+npm install @bricks-soft/cap-downloader
 npx cap sync
 ```
 

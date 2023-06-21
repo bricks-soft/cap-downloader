@@ -1,6 +1,6 @@
 {
-  "name": "cap-download",
-  "version": "0.0.4",
+  "name": "@bricks-soft/cap-download",
+  "version": "0.0.5",
   "description": "Download files using Android Download Manager",
   "main": "dist/plugin.cjs.js",
   "module": "dist/esm/index.js",
@@ -11,7 +11,10 @@
     "android/build.gradle",
     "dist/"
   ],
-  "author": "YasserRabee",
+  "author": {
+    "name": "Yasser Rabee",
+    "email": "yasser@brickssoft.com"
+  },
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -71,5 +74,6 @@
   },
   "publishConfig": {
     "access": "public"
-  }
+  },
+  "homepage": "https://github.com/bricks-soft/cap-download"
 }

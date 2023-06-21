@@ -1,6 +1,6 @@
 {
   "name": "@bricks-soft/cap-downloader",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "Download files using Android Download Manager",
   "main": "dist/plugin.cjs.js",
   "module": "dist/esm/index.js",

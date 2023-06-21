@@ -2,7 +2,7 @@ import { registerPlugin } from '@capacitor/core';
 
 import type { CapDownloaderPlugin } from './definitions';
 
-const CapDownloader = registerPlugin<CapDownloaderPlugin>('CapDownload', {
+const CapDownloader = registerPlugin<CapDownloaderPlugin>('CapDownloader', {
   web: () => import('./web').then(m => new m.CapDownloaderWeb()),
 });
 

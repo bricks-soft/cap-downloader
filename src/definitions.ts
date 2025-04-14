@@ -2,7 +2,7 @@ export interface Options {
   title: string;
   url: string;
   filename: string;
-  mimetype: string;
+  mimetype?: string;
 }
 
 export interface CapDownloaderPlugin {

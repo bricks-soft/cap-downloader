@@ -18,7 +18,7 @@ public class CapDownloaderPlugin extends Plugin {
         final String title = optionsJ.getString("title");
         final String url = optionsJ.getString("url");
         final String filename = optionsJ.getString("filename");
-        final String mimeType = optionsJ.getString("mimeType");
+        final String mimeType = optionsJ.getString("mimetype");
 
         final DownloadOptions options = new DownloadOptions(title, Uri.parse(url), filename, mimeType);
 

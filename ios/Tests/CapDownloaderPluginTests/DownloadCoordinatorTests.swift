@@ -63,6 +63,173 @@ final class DownloadCoordinatorTests: XCTestCase {
         XCTAssertEqual(CapDownloaderPlugin.authorizationDecision(for: .denied), .deny)
     }
 
+    func testNotificationAuthorizationCoalescesOverlappingRequests() throws {
+        var statusCompletions: [(UNAuthorizationStatus) -> Void] = []
+        var requestCompletions: [(Bool, Error?) -> Void] = []
+        let coordinator = DownloadNotificationAuthorizationCoordinator(
+            statusProvider: { statusCompletions.append($0) },
+            authorizationRequester: { requestCompletions.append($0) }
+        )
+        var successCount = 0
+        var failureCount = 0
+        let completion: (Result<Void, Error>) -> Void = { result in
+            switch result {
+            case .success:
+                successCount += 1
+            case .failure:
+                failureCount += 1
+            }
+        }
+
+        coordinator.ensureAuthorization(completion: completion)
+        coordinator.ensureAuthorization(completion: completion)
+        XCTAssertEqual(statusCompletions.count, 1)
+        XCTAssertEqual(successCount, 0)
+        XCTAssertEqual(failureCount, 0)
+
+        statusCompletions.removeFirst()(.notDetermined)
+        coordinator.ensureAuthorization(completion: completion)
+        XCTAssertEqual(statusCompletions.count, 0)
+        XCTAssertEqual(requestCompletions.count, 1)
+
+        requestCompletions.removeFirst()(true, nil)
+        XCTAssertEqual(successCount, 3)
+        XCTAssertEqual(failureCount, 0)
+    }
+
+    func testNotificationAuthorizationCoalescesConcurrentCallers() {
+        let stateLock = NSLock()
+        var statusReadCount = 0
+        var statusCompletion: ((UNAuthorizationStatus) -> Void)?
+        let coordinator = DownloadNotificationAuthorizationCoordinator(
+            statusProvider: { completion in
+                stateLock.lock()
+                statusReadCount += 1
+                statusCompletion = completion
+                stateLock.unlock()
+            },
+            authorizationRequester: { _ in
+                XCTFail("Authorized status must not request permission")
+            }
+        )
+        var successCount = 0
+
+        DispatchQueue.concurrentPerform(iterations: 20) { _ in
+            coordinator.ensureAuthorization { result in
+                if case .success = result {
+                    stateLock.lock()
+                    successCount += 1
+                    stateLock.unlock()
+                }
+            }
+        }
+
+        stateLock.lock()
+        let capturedStatusReadCount = statusReadCount
+        let capturedStatusCompletion = statusCompletion
+        stateLock.unlock()
+        XCTAssertEqual(capturedStatusReadCount, 1)
+
+        capturedStatusCompletion?(.authorized)
+        stateLock.lock()
+        let capturedSuccessCount = successCount
+        stateLock.unlock()
+        XCTAssertEqual(capturedSuccessCount, 20)
+    }
+
+    func testNotificationAuthorizationAllowsReentrantFreshCheck() {
+        var statusCompletions: [(UNAuthorizationStatus) -> Void] = []
+        let coordinator = DownloadNotificationAuthorizationCoordinator(
+            statusProvider: { statusCompletions.append($0) },
+            authorizationRequester: { _ in
+                XCTFail("Authorized status must not request permission")
+            }
+        )
+        var successCount = 0
+
+        coordinator.ensureAuthorization { firstResult in
+            if case .success = firstResult {
+                successCount += 1
+            }
+            coordinator.ensureAuthorization { secondResult in
+                if case .success = secondResult {
+                    successCount += 1
+                }
+            }
+        }
+        XCTAssertEqual(statusCompletions.count, 1)
+
+        statusCompletions.removeFirst()(.authorized)
+        XCTAssertEqual(statusCompletions.count, 1)
+        statusCompletions.removeFirst()(.authorized)
+        XCTAssertEqual(successCount, 2)
+    }
+
+    func testNotificationAuthorizationDenialCompletesEveryWaiter() {
+        var statusCompletion: ((UNAuthorizationStatus) -> Void)?
+        var requestCompletion: ((Bool, Error?) -> Void)?
+        let coordinator = DownloadNotificationAuthorizationCoordinator(
+            statusProvider: { statusCompletion = $0 },
+            authorizationRequester: { requestCompletion = $0 }
+        )
+        var failureCount = 0
+        let completion: (Result<Void, Error>) -> Void = { result in
+            if case .failure = result {
+                failureCount += 1
+            }
+        }
+
+        coordinator.ensureAuthorization(completion: completion)
+        coordinator.ensureAuthorization(completion: completion)
+        statusCompletion?(.notDetermined)
+        requestCompletion?(false, nil)
+
+        XCTAssertEqual(failureCount, 2)
+    }
+
+    func testNotificationAuthorizationReadsFreshStatusAfterCompletion() {
+        var statusCompletions: [(UNAuthorizationStatus) -> Void] = []
+        var requestCount = 0
+        let coordinator = DownloadNotificationAuthorizationCoordinator(
+            statusProvider: { statusCompletions.append($0) },
+            authorizationRequester: { _ in requestCount += 1 }
+        )
+        var results: [Bool] = []
+        let completion: (Result<Void, Error>) -> Void = { result in
+            results.append((try? result.get()) != nil)
+        }
+
+        coordinator.ensureAuthorization(completion: completion)
+        statusCompletions.removeFirst()(.authorized)
+        coordinator.ensureAuthorization(completion: completion)
+        statusCompletions.removeFirst()(.denied)
+
+        XCTAssertEqual(results, [true, false])
+        XCTAssertEqual(requestCount, 0)
+    }
+
+    func testNotificationAuthorizationCanRetryAfterNativeError() {
+        var statusCompletions: [(UNAuthorizationStatus) -> Void] = []
+        var requestCompletions: [(Bool, Error?) -> Void] = []
+        let coordinator = DownloadNotificationAuthorizationCoordinator(
+            statusProvider: { statusCompletions.append($0) },
+            authorizationRequester: { requestCompletions.append($0) }
+        )
+        var results: [Bool] = []
+        let completion: (Result<Void, Error>) -> Void = { result in
+            results.append((try? result.get()) != nil)
+        }
+
+        coordinator.ensureAuthorization(completion: completion)
+        statusCompletions.removeFirst()(.notDetermined)
+        requestCompletions.removeFirst()(false, TestError.expected)
+        coordinator.ensureAuthorization(completion: completion)
+        statusCompletions.removeFirst()(.notDetermined)
+        requestCompletions.removeFirst()(true, nil)
+
+        XCTAssertEqual(results, [false, true])
+    }
+
     func testForegroundDownloadNotificationsRemainAvailableInNotificationCenter() {
         let options = DownloadNotificationHandler.presentationOptions(
             for: "cap-downloader-42-complete"

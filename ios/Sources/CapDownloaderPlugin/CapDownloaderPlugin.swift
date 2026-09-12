@@ -8,6 +8,85 @@ enum DownloadNotificationAuthorizationDecision: Equatable {
     case deny
 }
 
+final class DownloadNotificationAuthorizationCoordinator {
+    typealias StatusProvider = (@escaping (UNAuthorizationStatus) -> Void) -> Void
+    typealias AuthorizationRequester = (@escaping (Bool, Error?) -> Void) -> Void
+
+    private let lock = NSLock()
+    private let statusProvider: StatusProvider
+    private let authorizationRequester: AuthorizationRequester
+    private var isCheckingAuthorization = false
+    private var completions: [(Result<Void, Error>) -> Void] = []
+
+    convenience init(center: UNUserNotificationCenter = .current()) {
+        self.init(
+            statusProvider: { completion in
+                center.getNotificationSettings { settings in
+                    completion(settings.authorizationStatus)
+                }
+            },
+            authorizationRequester: { completion in
+                center.requestAuthorization(
+                    options: [.alert, .sound],
+                    completionHandler: completion
+                )
+            }
+        )
+    }
+
+    init(
+        statusProvider: @escaping StatusProvider,
+        authorizationRequester: @escaping AuthorizationRequester
+    ) {
+        self.statusProvider = statusProvider
+        self.authorizationRequester = authorizationRequester
+    }
+
+    func ensureAuthorization(
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        lock.lock()
+        completions.append(completion)
+        guard !isCheckingAuthorization else {
+            lock.unlock()
+            return
+        }
+        isCheckingAuthorization = true
+        lock.unlock()
+
+        statusProvider { status in
+            switch CapDownloaderPlugin.authorizationDecision(for: status) {
+            case .allow:
+                self.finish(with: .success(()))
+            case .request:
+                self.authorizationRequester { granted, error in
+                    if let error {
+                        self.finish(with: .failure(error))
+                    } else if granted {
+                        self.finish(with: .success(()))
+                    } else {
+                        self.finish(
+                            with: .failure(CapDownloaderError.notificationPermissionDenied)
+                        )
+                    }
+                }
+            case .deny:
+                self.finish(with: .failure(CapDownloaderError.notificationPermissionDenied))
+            }
+        }
+    }
+
+    private func finish(with result: Result<Void, Error>) {
+        lock.lock()
+        let pendingCompletions = completions
+        completions.removeAll()
+        isCheckingAuthorization = false
+        lock.unlock()
+
+        pendingCompletions.forEach { $0(result) }
+    }
+}
+
 @objc(CapDownloaderPlugin)
 public class CapDownloaderPlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "CapDownloaderPlugin"
@@ -19,6 +98,7 @@ public class CapDownloaderPlugin: CAPPlugin, CAPBridgedPlugin {
     private lazy var notificationHandler = DownloadNotificationHandler { [weak self] in
         self?.bridge?.viewController
     }
+    private let notificationAuthorization = DownloadNotificationAuthorizationCoordinator()
 
     override public func load() {
         bridge?.notificationRouter.localNotificationHandler = notificationHandler
@@ -36,7 +116,7 @@ public class CapDownloaderPlugin: CAPPlugin, CAPBridgedPlugin {
             return
         }
 
-        ensureNotificationAuthorization { result in
+        notificationAuthorization.ensureAuthorization { result in
             switch result {
             case .success:
                 do {
@@ -52,30 +132,6 @@ public class CapDownloaderPlugin: CAPPlugin, CAPBridgedPlugin {
                 }
             case let .failure(error):
                 call.reject(error.localizedDescription, nil, error)
-            }
-        }
-    }
-
-    private func ensureNotificationAuthorization(
-        completion: @escaping (Result<Void, Error>) -> Void
-    ) {
-        let center = UNUserNotificationCenter.current()
-        center.getNotificationSettings { settings in
-            switch Self.authorizationDecision(for: settings.authorizationStatus) {
-            case .allow:
-                completion(.success(()))
-            case .request:
-                center.requestAuthorization(options: [.alert, .sound]) { granted, error in
-                    if let error {
-                        completion(.failure(error))
-                    } else if granted {
-                        completion(.success(()))
-                    } else {
-                        completion(.failure(CapDownloaderError.notificationPermissionDenied))
-                    }
-                }
-            case .deny:
-                completion(.failure(CapDownloaderError.notificationPermissionDenied))
             }
         }
     }

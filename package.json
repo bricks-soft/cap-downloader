@@ -1,6 +1,6 @@
 {
   "name": "@bricks-soft/cap-downloader",
-  "version": "7.1.0",
+  "version": "7.2.0",
   "description": "Download files using Android Download Manager and iOS background URLSession",
   "main": "dist/plugin.cjs.js",
   "module": "dist/esm/index.js",

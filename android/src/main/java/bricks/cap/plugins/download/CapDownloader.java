@@ -43,10 +43,10 @@ public class CapDownloader {
 
         final DownloadManager dm = context.getSystemService(DownloadManager.class);
         final DownloadManager.Request req = new DownloadManager.Request(options.url)
-                .setTitle(options.title)
-                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                .setMimeType(mimetype)
-                .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, options.filename);
+            .setTitle(options.title)
+            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+            .setMimeType(mimetype)
+            .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, options.filename);
 
         return dm.enqueue(req);
     }

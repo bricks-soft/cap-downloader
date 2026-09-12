@@ -43,8 +43,8 @@ func application(
 
 <docgen-index>
 
-- [`download(...)`](#download)
-- [Interfaces](#interfaces)
+* [`download(...)`](#download)
+* [Interfaces](#interfaces)
 
 </docgen-index>
 
@@ -63,9 +63,11 @@ download(options: Options) => Promise<{ id?: number; }>
 
 **Returns:** <code>Promise&lt;{ id?: number; }&gt;</code>
 
----
+--------------------
+
 
 ### Interfaces
+
 
 #### Options
 

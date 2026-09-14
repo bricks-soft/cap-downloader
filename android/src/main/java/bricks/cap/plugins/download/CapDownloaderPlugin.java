@@ -27,7 +27,11 @@ public class CapDownloaderPlugin extends Plugin {
             final long id = implementation.download(getContext(), options);
             ret.put("id", id);
             call.resolve(ret);
-        } catch (NotImplementedError e) {
+        } catch (NotImplementedError | InvalidUrlError e) {
+            call.reject(e.getMessage(), e);
+        } catch (RuntimeException e) {
+            // DownloadManager can still throw for input we did not anticipate. Reject so the caller
+            // can handle it, rather than letting it escape and kill the host app.
             call.reject(e.getMessage(), e);
         }
     }

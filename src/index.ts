@@ -8,7 +8,7 @@ const nativeDownloader = registerPlugin<CapDownloaderPlugin>('CapDownloader', {
 
 const CapDownloader: CapDownloaderPlugin = {
   download: (options) => {
-    if (/^(blob|data):/.test(options.url)) {
+    if (/^\s*(blob|data):/i.test(options.url)) {
       return import('./web').then(({ CapDownloaderWeb }) => new CapDownloaderWeb().download(options));
     }
     return nativeDownloader.download(options);

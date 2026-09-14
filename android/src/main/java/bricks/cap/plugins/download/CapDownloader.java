@@ -28,11 +28,22 @@ class NotImplementedError extends Exception {
     }
 }
 
+class InvalidUrlError extends Exception {
+
+    public InvalidUrlError(String message) {
+        super(message);
+    }
+}
+
 public class CapDownloader {
 
-    public long download(Context context, DownloadOptions options) throws NotImplementedError {
+    public long download(Context context, DownloadOptions options) throws NotImplementedError, InvalidUrlError {
         if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.M) {
             throw new NotImplementedError("Not available on Android API 23 or earlier.");
+        }
+
+        if (!isDownloadableUrl(options.url)) {
+            throw new InvalidUrlError("Only http and https URLs can be downloaded, got: " + options.url);
         }
 
         final String ext = MimeTypeMap.getFileExtensionFromUrl(options.url.toString());
@@ -49,5 +60,18 @@ public class CapDownloader {
             .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, options.filename);
 
         return dm.enqueue(req);
+    }
+
+    /**
+     * DownloadManager.Request throws IllegalArgumentException for any non-HTTP(S) URI, which would
+     * escape as an uncaught exception and kill the host app. Check the scheme first so the caller
+     * gets a rejected promise instead.
+     */
+    static boolean isDownloadableUrl(Uri url) {
+        return url != null && isDownloadableScheme(url.getScheme());
+    }
+
+    static boolean isDownloadableScheme(String scheme) {
+        return "http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme);
     }
 }

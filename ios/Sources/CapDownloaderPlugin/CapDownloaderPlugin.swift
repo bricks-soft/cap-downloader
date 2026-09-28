@@ -101,7 +101,13 @@ public class CapDownloaderPlugin: CAPPlugin, CAPBridgedPlugin {
     private let notificationAuthorization = DownloadNotificationAuthorizationCoordinator()
 
     override public func load() {
-        bridge?.notificationRouter.localNotificationHandler = notificationHandler
+        // Plugins such as @capacitor/local-notifications also claim the router's single
+        // local-notification slot in load(). Claiming it after every plugin has loaded keeps
+        // download taps here regardless of load order; other notifications are forwarded.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, let router = self.bridge?.notificationRouter else { return }
+            self.notificationHandler.install(on: router)
+        }
         DownloadCoordinator.shared.restorePendingDownloads()
     }
 

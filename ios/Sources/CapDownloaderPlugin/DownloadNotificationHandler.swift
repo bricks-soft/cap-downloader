@@ -118,6 +118,10 @@ final class DownloadNotificationHandler: NSObject, NotificationHandlerProtocol {
     private let retryScheduler: (@escaping () -> Void) -> Void
     private var activeObserver: NSObjectProtocol?
     private(set) var pendingFileURL: URL?
+    /// The router holds a single local-notification handler. A handler that another plugin
+    /// registered before this one is kept here and receives every notification this plugin
+    /// did not schedule.
+    private(set) weak var forwardingHandler: NotificationHandlerProtocol?
     private var readinessRetryCount = 0
     private var retryScheduled = false
 
@@ -155,19 +159,36 @@ final class DownloadNotificationHandler: NSObject, NotificationHandlerProtocol {
         }
     }
 
+    /// Claims the router's local-notification slot and forwards to its previous handler.
+    func install(on router: NotificationRouter) {
+        guard router.localNotificationHandler !== self else { return }
+        forwardingHandler = router.localNotificationHandler
+        router.localNotificationHandler = self
+    }
+
+    static func ownsNotification(withIdentifier identifier: String) -> Bool {
+        identifier.hasPrefix("cap-downloader-")
+    }
+
     func willPresent(notification: UNNotification) -> UNNotificationPresentationOptions {
-        Self.presentationOptions(for: notification.request.identifier)
+        guard Self.ownsNotification(withIdentifier: notification.request.identifier) else {
+            return forwardingHandler?.willPresent(notification: notification) ?? []
+        }
+        return Self.presentationOptions(for: notification.request.identifier)
     }
 
     static func presentationOptions(for identifier: String) -> UNNotificationPresentationOptions {
-        guard identifier.hasPrefix("cap-downloader-") else { return [] }
+        guard ownsNotification(withIdentifier: identifier) else { return [] }
         return [.banner, .list, .sound]
     }
 
     func didReceive(response: UNNotificationResponse) {
+        guard Self.ownsNotification(withIdentifier: response.notification.request.identifier) else {
+            forwardingHandler?.didReceive(response: response)
+            return
+        }
         guard
             response.actionIdentifier == UNNotificationDefaultActionIdentifier,
-            response.notification.request.identifier.hasPrefix("cap-downloader-"),
             let path = response.notification.request.content.userInfo[
                 DownloadCoordinator.notificationPathKey
             ] as? String
